@@ -28,14 +28,6 @@ func main() {
 	dir := getEnv("CONF_DIR", "./conf/owner1")
 	port := getEnv("PORT", "9200")
 
-	fsc := startFabricSmartClient(dir)
-	// Tell the service how to respond to other nodes when they initiate an action
-	registry := viewregistry.GetRegistry(fsc)
-	succeedOrPanic(registry.RegisterResponder(&service.AcceptCashView{}, "github.com/hyperledger/fabric-samples/token-sdk/issuer/service/IssueCashView"))
-	succeedOrPanic(registry.RegisterResponder(&service.AcceptCashView{}, &service.TransferView{}))
-
-	controller := routes.Controller{Service: service.TokenService{FSC: fsc}}
-
 	upg, _ := tableflip.New(tableflip.Options{})
 	defer upg.Stop()
 
@@ -73,6 +65,13 @@ func main() {
 	go func() {
 		for range changes {
 			logger.Infof("config changes detected, restarting web server")
+			fsc := startFabricSmartClient(dir)
+			// Tell the service how to respond to other nodes when they initiate an action
+			registry := viewregistry.GetRegistry(fsc)
+			succeedOrPanic(registry.RegisterResponder(&service.AcceptCashView{}, "github.com/hyperledger/fabric-samples/token-sdk/issuer/service/IssueCashView"))
+			succeedOrPanic(registry.RegisterResponder(&service.AcceptCashView{}, &service.TransferView{}))
+
+			controller := routes.Controller{Service: service.TokenService{FSC: fsc}}
 			ns := routes.StartWebServer(controller, logger)
 			go serve(&ns, ln)
 			err := server.Shutdown(context.TODO())
