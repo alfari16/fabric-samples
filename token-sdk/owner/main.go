@@ -13,8 +13,8 @@ import (
 	tokensdk "github.com/hyperledger-labs/fabric-token-sdk/token/sdk"
 	"github.com/hyperledger/fabric-samples/token-sdk/owner/routes"
 	"github.com/hyperledger/fabric-samples/token-sdk/owner/service"
+	cp "github.com/otiai10/copy"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -24,9 +24,18 @@ import (
 
 var logger = flogging.MustGetLogger("main")
 
+type nh string
+
+func (n nh) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	_, _ = writer.Write([]byte(n))
+	writer.WriteHeader(http.StatusInternalServerError)
+}
+
 func main() {
 	dir := getEnv("CONF_DIR", "./conf/owner1")
 	port := getEnv("PORT", "9200")
+
+	ctx, cancel := context.WithCancel(context.Background())
 
 	upg, _ := tableflip.New(tableflip.Options{})
 	defer upg.Stop()
@@ -40,52 +49,87 @@ func main() {
 		}
 	}()
 
-	var server http.Server
+	var handler http.Handler = nh("fsc not initialized")
+	server := &http.Server{
+		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			handler.ServeHTTP(writer, request)
+		}),
+	}
 	ln, _ := upg.Fds.Listen("tcp", fmt.Sprintf(":%s", port))
+
+	go func() {
+		err := server.Serve(ln)
+		if err != nil {
+			if errors.Is(err, http.ErrServerClosed) {
+				logger.Infof("Webserver closing, exiting...", err.Error())
+			} else {
+				logger.Fatalf("echo error - %s", err.Error())
+				os.Exit(1)
+			}
+		}
+	}()
 
 	// watch if the config file changes
 	changes, coreConfig := make(chan int), fmt.Sprintf("%s/core.yaml", dir)
 	var conf string
 	go func() {
 		for {
-			newConf, err := fetchConfig(coreConfig)
-			if err != nil {
-				logger.Errorf("failed fetching config: %w", err)
-				os.Exit(1)
+			select {
+			case <-ctx.Done():
+				close(changes)
+				return
+			default:
+				newConf, err := fetchConfig(coreConfig)
+				if err != nil {
+					logger.Errorf("failed fetching config: %w", err)
+					os.Exit(1)
+				}
+				if newConf != conf {
+					conf = newConf
+					changes <- 1
+				}
+				time.Sleep(time.Second)
 			}
-			if newConf != conf {
-				conf = newConf
-				changes <- 1
-			}
-			time.Sleep(time.Second)
 		}
 	}()
 
+	var fsc Node
 	// waiting for changes
 	go func() {
 		for range changes {
 			logger.Infof("config changes detected, restarting web server")
-			fsc := startFabricSmartClient(dir)
+			copiedDir := fmt.Sprintf("%s-%d", dir, time.Now().Unix())
+			err := cp.Copy(dir, copiedDir)
+			if err != nil {
+				logger.Errorf("error copying config file: %w", err)
+			}
+
+			newFsc := startFabricSmartClient(copiedDir)
+
 			// Tell the service how to respond to other nodes when they initiate an action
 			registry := viewregistry.GetRegistry(fsc)
 			succeedOrPanic(registry.RegisterResponder(&service.AcceptCashView{}, "github.com/hyperledger/fabric-samples/token-sdk/issuer/service/IssueCashView"))
 			succeedOrPanic(registry.RegisterResponder(&service.AcceptCashView{}, &service.TransferView{}))
 
 			controller := routes.Controller{Service: service.TokenService{FSC: fsc}}
-			ns := routes.StartWebServer(controller, logger)
-			go serve(&ns, ln)
-			err := server.Shutdown(context.TODO())
-			if err != nil {
-				logger.Errorf("error shutting down old config server: %w", err)
+			handler = routes.StartWebServer(controller, logger)
+
+			if fsc != nil {
+				fsc.Stop()
 			}
-			server = ns
+			fsc = newFsc
 		}
 	}()
 
 	_ = upg.Ready()
 	<-upg.Exit()
+	cancel()
+	fsc.Stop()
 
-	server.Shutdown(context.TODO())
+	err := server.Shutdown(context.TODO())
+	if err != nil {
+		logger.Errorf("error shutting down server: %w", err)
+	}
 }
 
 type Node interface {
@@ -167,18 +211,4 @@ func fetchConfig(dir string) (string, error) {
 	b, err := io.ReadAll(f)
 
 	return string(b), err
-}
-
-func serve(server *http.Server, ln net.Listener) {
-	err := server.Serve(ln)
-	if err != nil {
-		if errors.Is(err, http.ErrServerClosed) {
-			logger.Infof("Webserver closing, exiting...", err.Error())
-			//fsc.Stop()
-		} else {
-			logger.Fatalf("echo error - %s", err.Error())
-			//fsc.Stop()
-			os.Exit(1)
-		}
-	}
 }

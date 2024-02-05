@@ -8,7 +8,6 @@ package routes
 
 import (
 	"log"
-	"net/http"
 	"os"
 
 	oapimiddleware "github.com/deepmap/oapi-codegen/pkg/middleware"
@@ -25,7 +24,7 @@ type Logger interface {
 }
 
 // Start web server on the main thread. It exits the application if it fails setting up.
-func StartWebServer(routesImplementation StrictServerInterface, logger Logger) http.Server {
+func StartWebServer(routesImplementation StrictServerInterface, logger Logger) *echo.Echo {
 	e := echo.New()
 	baseURL := "/api/v1"
 
@@ -61,5 +60,5 @@ func StartWebServer(routesImplementation StrictServerInterface, logger Logger) h
 	}))
 
 	// Start REST API server
-	return *e.Server
+	return e
 }
