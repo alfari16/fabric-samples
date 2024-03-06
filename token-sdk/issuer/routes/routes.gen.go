@@ -46,6 +46,18 @@ type Error struct {
 	Payload string `json:"payload"`
 }
 
+// TransactionDetail transaction detail
+type TransactionDetail struct {
+	// Platform platform code
+	Platform string `json:"platform"`
+
+	// TransactionCategory transaction code
+	TransactionCategory string `json:"transaction_category"`
+
+	// TransactionType transaction type
+	TransactionType string `json:"transaction_type"`
+}
+
 // TransferRequest Instructions to issue or transfer tokens to an account
 type TransferRequest struct {
 	// Amount The amount to issue, transfer or redeem.
@@ -56,6 +68,9 @@ type TransferRequest struct {
 
 	// Message optional message that will be sent and stored with the transfer transaction
 	Message *string `json:"message,omitempty"`
+
+	// TransactionDetail transaction detail
+	TransactionDetail TransactionDetail `json:"transaction_detail"`
 }
 
 // ErrorResponse defines model for ErrorResponse.
@@ -75,31 +90,46 @@ type IssueSuccess struct {
 	Payload string `json:"payload"`
 }
 
+// HarvestJSONRequestBody defines body for Harvest for application/json ContentType.
+type HarvestJSONRequestBody = TransferRequest
+
 // IssueJSONRequestBody defines body for Issue for application/json ContentType.
 type IssueJSONRequestBody = TransferRequest
 
+// KabayanJSONRequestBody defines body for Kabayan for application/json ContentType.
+type KabayanJSONRequestBody = TransferRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-
-	// (GET /healthz)
-	Healthz(ctx echo.Context) error
-	// Issue tokens to an account
-	// (POST /issuer/issue)
-	Issue(ctx echo.Context) error
-	// Harvest tokens to an account
+	// Harvest the pond and collect tokens
 	// (POST /harvest)
 	Harvest(ctx echo.Context) error
-	// RequestKabayan tokens to an account
-	// (POST /request-kabayan)
-	RequestKabayan(ctx echo.Context) error
-
+	// Returns 200 if the service is healthy
+	// (GET /healthz)
+	Healthz(ctx echo.Context) error
+	// Issue tokens of any kind to an account
+	// (POST /issuer/issue)
+	Issue(ctx echo.Context) error
+	// Returns 200 if the service is ready to accept calls
 	// (GET /readyz)
 	Readyz(ctx echo.Context) error
+	// Request token for kabayan
+	// (POST /request-kabayan)
+	Kabayan(ctx echo.Context) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// Harvest converts echo context to params.
+func (w *ServerInterfaceWrapper) Harvest(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.Harvest(ctx)
+	return err
 }
 
 // Healthz converts echo context to params.
@@ -120,30 +150,21 @@ func (w *ServerInterfaceWrapper) Issue(ctx echo.Context) error {
 	return err
 }
 
-// Issue converts echo context to params.
-func (w *ServerInterfaceWrapper) Harvest(ctx echo.Context) error {
-	var err error
-
-	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.Harvest(ctx)
-	return err
-}
-
-// Issue converts echo context to params.
-func (w *ServerInterfaceWrapper) RequestKabayan(ctx echo.Context) error {
-	var err error
-
-	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.RequestKabayan(ctx)
-	return err
-}
-
 // Readyz converts echo context to params.
 func (w *ServerInterfaceWrapper) Readyz(ctx echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.Readyz(ctx)
+	return err
+}
+
+// Kabayan converts echo context to params.
+func (w *ServerInterfaceWrapper) Kabayan(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.Kabayan(ctx)
 	return err
 }
 
@@ -175,11 +196,11 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.POST(baseURL+"/harvest", wrapper.Harvest)
 	router.GET(baseURL+"/healthz", wrapper.Healthz)
 	router.POST(baseURL+"/issuer/issue", wrapper.Issue)
-	router.POST(baseURL+"/harvest", wrapper.Harvest)
-	router.POST(baseURL+"/request-kabayan", wrapper.RequestKabayan)
 	router.GET(baseURL+"/readyz", wrapper.Readyz)
+	router.POST(baseURL+"/request-kabayan", wrapper.Kabayan)
 
 }
 
@@ -195,6 +216,35 @@ type IssueSuccessJSONResponse struct {
 
 	// Payload Transaction id
 	Payload string `json:"payload"`
+}
+
+type HarvestRequestObject struct {
+	Body *HarvestJSONRequestBody
+}
+
+type HarvestResponseObject interface {
+	VisitHarvestResponse(w http.ResponseWriter) error
+}
+
+type Harvest200JSONResponse struct{ IssueSuccessJSONResponse }
+
+func (response Harvest200JSONResponse) VisitHarvestResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type HarvestdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response HarvestdefaultJSONResponse) VisitHarvestResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type HealthzRequestObject struct {
@@ -276,17 +326,52 @@ func (response Readyz503JSONResponse) VisitReadyzResponse(w http.ResponseWriter)
 	return json.NewEncoder(w).Encode(response)
 }
 
+type KabayanRequestObject struct {
+	Body *KabayanJSONRequestBody
+}
+
+type KabayanResponseObject interface {
+	VisitKabayanResponse(w http.ResponseWriter) error
+}
+
+type Kabayan200JSONResponse struct{ IssueSuccessJSONResponse }
+
+func (response Kabayan200JSONResponse) VisitKabayanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type KabayandefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response KabayandefaultJSONResponse) VisitKabayanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-
+	// Harvest the pond and collect tokens
+	// (POST /harvest)
+	Harvest(ctx context.Context, request HarvestRequestObject) (HarvestResponseObject, error)
+	// Returns 200 if the service is healthy
 	// (GET /healthz)
 	Healthz(ctx context.Context, request HealthzRequestObject) (HealthzResponseObject, error)
-	// Issue tokens to an account
+	// Issue tokens of any kind to an account
 	// (POST /issuer/issue)
 	Issue(ctx context.Context, request IssueRequestObject) (IssueResponseObject, error)
-
+	// Returns 200 if the service is ready to accept calls
 	// (GET /readyz)
 	Readyz(ctx context.Context, request ReadyzRequestObject) (ReadyzResponseObject, error)
+	// Request token for kabayan
+	// (POST /request-kabayan)
+	Kabayan(ctx context.Context, request KabayanRequestObject) (KabayanResponseObject, error)
 }
 
 type StrictHandlerFunc = runtime.StrictEchoHandlerFunc
@@ -299,6 +384,35 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// Harvest operation middleware
+func (sh *strictHandler) Harvest(ctx echo.Context) error {
+	var request HarvestRequestObject
+
+	var body HarvestJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Harvest(ctx.Request().Context(), request.(HarvestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Harvest")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(HarvestResponseObject); ok {
+		return validResponse.VisitHarvestResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("Unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // Healthz operation middleware
@@ -353,64 +467,6 @@ func (sh *strictHandler) Issue(ctx echo.Context) error {
 	return nil
 }
 
-func (sh *strictHandler) Harvest(ctx echo.Context) error {
-	var request IssueRequestObject
-
-	var body IssueJSONRequestBody
-	if err := ctx.Bind(&body); err != nil {
-		return err
-	}
-	request.Body = &body
-	request.Body.Amount.Code = "IDR"
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.Issue(ctx.Request().Context(), request.(IssueRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Issue")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(IssueResponseObject); ok {
-		return validResponse.VisitIssueResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("Unexpected response type: %T", response)
-	}
-	return nil
-}
-
-func (sh *strictHandler) RequestKabayan(ctx echo.Context) error {
-	var request IssueRequestObject
-
-	var body IssueJSONRequestBody
-	if err := ctx.Bind(&body); err != nil {
-		return err
-	}
-	request.Body = &body
-	request.Body.Amount.Code = "KBY"
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.Issue(ctx.Request().Context(), request.(IssueRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Issue")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(IssueResponseObject); ok {
-		return validResponse.VisitIssueResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("Unexpected response type: %T", response)
-	}
-	return nil
-}
-
 // Readyz operation middleware
 func (sh *strictHandler) Readyz(ctx echo.Context) error {
 	var request ReadyzRequestObject
@@ -434,29 +490,65 @@ func (sh *strictHandler) Readyz(ctx echo.Context) error {
 	return nil
 }
 
+// Kabayan operation middleware
+func (sh *strictHandler) Kabayan(ctx echo.Context) error {
+	var request KabayanRequestObject
+
+	var body KabayanJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Kabayan(ctx.Request().Context(), request.(KabayanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Kabayan")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(KabayanResponseObject); ok {
+		return validResponse.VisitKabayanResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("Unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

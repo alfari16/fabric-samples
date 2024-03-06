@@ -30,3 +30,13 @@ install-fabric.sh
 
 # override the ignore of all config/ folders
 !full-stack-asset-transfer-guide/infrastructure/sample-network/config
+
+#ignore all compile app in tokenchaincode
+app
+tcc
+
+# ignore repo fabric-token-sdk
+token-sdk/fabric-token-sdk
+
+# ignore cred when testing chaincode basic in kube
+asset-transfer-basic/application-gateway-go/creds

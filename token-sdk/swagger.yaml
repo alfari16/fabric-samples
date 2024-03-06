@@ -80,8 +80,7 @@ paths:
             schema:
               $ref: "#/components/schemas/TransferRequest"
       operationId: issue
-      summary: Issue tokens of any kind to an account
-
+      summary: Issue tokens of any kind to an account 
   /harvest:
     servers:
       - url: http://localhost:9100/api/v1/
@@ -129,6 +128,30 @@ paths:
       summary: Request token for kabayan
 
   # Owner
+  /owner/register:
+    servers:
+      - url: http://localhost:9200/api/v1/
+        description: alice and bob
+      - url: http://localhost:9300/api/v1/
+        description: carlos and dan
+    post:
+      tags:
+        - owner
+      responses:
+        "200":
+          $ref: "#/components/responses/TransferSuccess"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      requestBody:
+        description: Instructions to register an account
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      operationId: registerUser
+      summary: Register an account
+      
   /owner/accounts:
     servers:
       - url: http://localhost:9200/api/v1/
@@ -166,6 +189,37 @@ paths:
       operationId: ownerAccount
       summary: Get an account and its balances of each token type
 
+  /owner/accounts/me:
+    servers:
+      - url: http://localhost:9200/api/v1/
+        description: alice and bob
+      - url: http://localhost:9300/api/v1/
+        description: carlos and dan
+    get:
+      tags:
+        - owner
+      parameters:
+        - $ref: "#/components/parameters/code"
+        - name: cred
+          in: header
+          schema:
+            type: string
+            description: credential to access the account
+            example: CgtJc3N1ZXJNU1BJRBK8By0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpNSUlDbFRDQ0FqeWdBd0lCQWdJVV...
+        - name: wallet_id
+          in: header
+          schema:
+            type: string
+            description: wallet id in existing org
+            example: alice
+      responses:
+        "200":
+          $ref: "#/components/responses/AccountSuccess"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      operationId: ownerMe
+      summary: Get my account and its balances of each token type by pem certificate param header
+
   /owner/accounts/{id}/transactions:
     servers:
       - url: http://localhost:9200/api/v1/
@@ -177,6 +231,8 @@ paths:
         - owner
       parameters:
         - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/transactionType"
+        - $ref: "#/components/parameters/transactionCategory"
       operationId: ownerTransactions
       summary: Get all transactions for an account
       description: |
@@ -187,6 +243,39 @@ paths:
 
         This could be confusing for a user. A simple solution is to filter out the transactions with the same
         sender and recipient.
+      responses:
+        "200":
+          $ref: "#/components/responses/TransactionsSuccess"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+
+  /owner/accounts/transactions/me:
+    servers:
+      - url: http://localhost:9200/api/v1/
+        description: alice and bob
+      - url: http://localhost:9300/api/v1/
+        description: carlos and dan
+    get:
+      tags:
+        - owner
+      parameters:
+        - name: cred
+          in: header
+          schema:
+            type: string
+            description: credential to access the account
+            example: CgtJc3N1ZXJNU1BJRBK8By0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpNSUlDbFRDQ0FqeWdBd0lCQWdJVV...
+        - name: wallet_id
+          in: header
+          schema:
+            type: string
+            description: wallet id in existing org
+            example: alice
+        - $ref: "#/components/parameters/transactionType"
+        - $ref: "#/components/parameters/transactionCategory"
+      operationId: ownerTransactionsMe
+      summary: Get all transactions for an account
+      description: Note that the system uses Unspent Transaction Outputs (UTXO).
       responses:
         "200":
           $ref: "#/components/responses/TransactionsSuccess"
@@ -220,6 +309,43 @@ paths:
       operationId: transfer
       summary: Transfer tokens to another account
 
+  /owner/accounts/transfer/me:
+    servers:
+      - url: http://localhost:9200/api/v1/
+        description: alice and bob
+      - url: http://localhost:9300/api/v1/
+        description: carlos and dan
+    summary: Transfer tokens to another account
+    post:
+      tags:
+        - owner
+      parameters:
+        - name: cred
+          in: header
+          schema:
+            type: string
+            description: credential to access the account
+            example: CgtJc3N1ZXJNU1BJRBK8By0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpNSUlDbFRDQ0FqeWdBd0lCQWdJVV...
+        - name: wallet_id
+          in: header
+          schema:
+            type: string
+            description: wallet id in existing org
+            example: alice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/TransferSuccess"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+      operationId: transferMe
+      summary: Transfer tokens to another account      
+
   /owner/accounts/{id}/redeem:
     servers:
       - url: http://localhost:9200/api/v1/
@@ -239,6 +365,44 @@ paths:
             schema:
               $ref: "#/components/schemas/RedeemRequest"
       operationId: redeem
+      summary: Redeem (burn) tokens
+      responses:
+        "200":
+          $ref: "#/components/responses/RedeemSuccess"
+        default:
+          $ref: "#/components/responses/ErrorResponse"
+
+  /owner/accounts/redeem/me:
+    servers:
+      - url: http://localhost:9200/api/v1/
+        description: alice and bob
+      - url: http://localhost:9300/api/v1/
+        description: carlos and dan
+    summary: Redeem (burn) tokens
+    post:
+      tags:
+        - owner
+      parameters:
+        - name: cred
+          in: header
+          required: true
+          schema:
+            type: string
+            description: credential to access the account
+            example: CgtJc3N1ZXJNU1BJRBK8By0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpNSUlDbFRDQ0FqeWdBd0lCQWdJVV...
+        - name: wallet_id
+          in: header
+          schema:
+            type: string
+            description: wallet id in existing org
+            example: alice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedeemRequest"
+      operationId: redeemMe
       summary: Redeem (burn) tokens
       responses:
         "200":
@@ -319,6 +483,19 @@ components:
                 type: array
                 items:
                   $ref: "#/components/schemas/TransactionRecord"
+    ExchangeDataSuccess:
+      description: Success response
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - payloads
+            properties:
+              payloads:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PayloadDetail"
     TransferSuccess:
       description: Success response
       content:
@@ -412,6 +589,61 @@ components:
       example:
         code: EURX
         value: 100
+    ExchangeDetail:
+      description: exchange detail
+      type: object
+      required:
+        - code
+        - exchange_rate
+      properties:
+        code:
+          type: string
+          description: token code
+        exchange_rate:
+          description: exchange rate to the base token
+          type: integer
+          format: int64
+          minimum: 0
+      example:
+        code: EURX
+        exchange_rate: 2
+    TransactionDetail:
+      description: transaction detail
+      type: object
+      required:
+        - transaction_category
+        - transaction_type
+        - platform
+      properties:
+        transaction_category:
+          type: string
+          description: transaction code
+        transaction_type:
+          type: string
+          description: transaction type
+        platform:
+          type: string
+          description: platform code
+      example:
+        transaction_category: ARAP
+        transaction_type: issue
+        platform: svc-ar-ap
+    PayloadDetail:
+      description: payload detail
+      type: object
+      required:
+        - message
+        - payload
+      properties:
+        message:
+          type: string
+          description: high level message
+        payload:
+          type: string
+          description: txId or other payload
+      example:
+        message: tokens redeemed
+        payload: 7c26ed6e5e05f7de81a82691b66b1069d1507d9edf3c7b78ea1fa98557ee57b4
     Account:
       type: object
       description: Information about an account and its balance
@@ -473,6 +705,8 @@ components:
           description: the recipient of the transaction
         amount:
           $ref: "#/components/schemas/Amount"
+        transaction_detail:
+          $ref: "#/components/schemas/TransactionDetail"
         timestamp:
           type: string
           format: date-time
@@ -495,28 +729,74 @@ components:
         message: ""
 
     # Owner
-    TransferRequest:
-      description: Instructions to issue or transfer tokens to an account
+    ExhangeRequest:
+      description: Instructions to exchange tokens
       required:
         - counterparty
         - amount
+        - exchange
       type: object
       properties:
         amount:
           $ref: "#/components/schemas/Amount"
         counterparty:
           $ref: "#/components/schemas/Counterparty"
+        exchange:
+          $ref: "#/components/schemas/ExchangeDetail"
         message:
           description: optional message that will be sent and stored with the transfer transaction
           type: string
-    RedeemRequest:
-      description: Instructions to redeem tokens from an account
+
+    TransferRequest:
+      description: Instructions to issue or transfer tokens to an account
       required:
+        - counterparty
         - amount
+        - transaction_detail
       type: object
       properties:
         amount:
           $ref: "#/components/schemas/Amount"
+        counterparty:
+          $ref: "#/components/schemas/Counterparty"
+        transaction_detail:
+          $ref: "#/components/schemas/TransactionDetail"
+        message:
+          description: optional message that will be sent and stored with the transfer transaction
+          type: string
+
+    RegisterRequest:
+      description: Instructions to register an account
+      required:
+        - id_wallet
+        - username_wallet
+        - node
+      type: object
+      properties:
+        id_wallet:
+          type: string
+          description: id as registered at the Certificate Authority
+        username_wallet:
+          type: string
+          description: username
+        node:
+          type: string
+          description: owner1
+        message:
+          description: optional message that will be visible to the auditor
+          type: string
+
+    RedeemRequest:
+      description: Instructions to redeem tokens from an account
+      required:
+        - amount
+        - transaction_detail
+      type: object
+      properties:
+        amount:
+          $ref: "#/components/schemas/Amount"
+        transaction_detail:
+          $ref: "#/components/schemas/TransactionDetail"
         message:
           description: optional message that will be visible to the auditor
           type: string
@@ -550,6 +830,20 @@ components:
       schema:
         example: EURX
         description: The token code to filter on
+        type: string
+    transactionType:
+      name: transactionType
+      in: query
+      schema:
+        example: issue
+        description: The transaction type to filter on
+        type: string
+    transactionCategory:
+      name: transactionCategory
+      in: query
+      schema:
+        example: ARAP
+        description: The transaction category to filter on
         type: string
   securitySchemes: {}
   headers: {}

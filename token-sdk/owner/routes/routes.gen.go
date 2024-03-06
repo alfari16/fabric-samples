@@ -63,6 +63,33 @@ type RedeemRequest struct {
 
 	// Message optional message that will be visible to the auditor
 	Message *string `json:"message,omitempty"`
+
+	// TransactionDetail transaction detail
+	TransactionDetail TransactionDetail `json:"transaction_detail"`
+}
+
+// RegisterRequest Instructions to register an account
+type RegisterRequest struct {
+	// IdWallet id as registered at the Certificate Authority
+	IdWallet string `json:"id_wallet"`
+
+	// Message optional message that will be visible to the auditor
+	Message *string `json:"message,omitempty"`
+
+	// UsernameWallet username
+	UsernameWallet string `json:"username_wallet"`
+}
+
+// TransactionDetail transaction detail
+type TransactionDetail struct {
+	// Platform platform code
+	Platform string `json:"platform"`
+
+	// TransactionCategory transaction code
+	TransactionCategory string `json:"transaction_category"`
+
+	// TransactionType transaction type
+	TransactionType string `json:"transaction_type"`
 }
 
 // TransactionRecord A transaction
@@ -87,6 +114,9 @@ type TransactionRecord struct {
 
 	// Timestamp timestamp in the format: "2018-03-20T09:12:28Z"
 	Timestamp time.Time `json:"timestamp"`
+
+	// TransactionDetail transaction detail
+	TransactionDetail *TransactionDetail `json:"transaction_detail,omitempty"`
 }
 
 // TransferRequest Instructions to issue or transfer tokens to an account
@@ -99,6 +129,9 @@ type TransferRequest struct {
 
 	// Message optional message that will be sent and stored with the transfer transaction
 	Message *string `json:"message,omitempty"`
+
+	// TransactionDetail transaction detail
+	TransactionDetail TransactionDetail `json:"transaction_detail"`
 }
 
 // Code The token code to filter on
@@ -106,6 +139,12 @@ type Code = string
 
 // Id account id as registered at the Certificate Authority
 type Id = string
+
+// TransactionCategory The transaction category to filter on
+type TransactionCategory = string
+
+// TransactionType The transaction type to filter on
+type TransactionType = string
 
 // AccountSuccess defines model for AccountSuccess.
 type AccountSuccess struct {
@@ -152,10 +191,49 @@ type TransferSuccess struct {
 	Payload string `json:"payload"`
 }
 
+// OwnerMeParams defines parameters for OwnerMe.
+type OwnerMeParams struct {
+	Code     *Code   `form:"code,omitempty" json:"code,omitempty"`
+	Cred     *string `json:"cred,omitempty"`
+	WalletId *string `json:"wallet_id,omitempty"`
+}
+
+// RedeemMeParams defines parameters for RedeemMe.
+type RedeemMeParams struct {
+	Cred     string  `json:"cred"`
+	WalletId *string `json:"wallet_id,omitempty"`
+}
+
+// OwnerTransactionsMeParams defines parameters for OwnerTransactionsMe.
+type OwnerTransactionsMeParams struct {
+	TransactionType     *TransactionType     `form:"transactionType,omitempty" json:"transactionType,omitempty"`
+	TransactionCategory *TransactionCategory `form:"transactionCategory,omitempty" json:"transactionCategory,omitempty"`
+	Cred                *string              `json:"cred,omitempty"`
+	WalletId            *string              `json:"wallet_id,omitempty"`
+}
+
+// TransferMeParams defines parameters for TransferMe.
+type TransferMeParams struct {
+	Cred     *string `json:"cred,omitempty"`
+	WalletId *string `json:"wallet_id,omitempty"`
+}
+
 // OwnerAccountParams defines parameters for OwnerAccount.
 type OwnerAccountParams struct {
 	Code *Code `form:"code,omitempty" json:"code,omitempty"`
 }
+
+// OwnerTransactionsParams defines parameters for OwnerTransactions.
+type OwnerTransactionsParams struct {
+	TransactionType     *TransactionType     `form:"transactionType,omitempty" json:"transactionType,omitempty"`
+	TransactionCategory *TransactionCategory `form:"transactionCategory,omitempty" json:"transactionCategory,omitempty"`
+}
+
+// RedeemMeJSONRequestBody defines body for RedeemMe for application/json ContentType.
+type RedeemMeJSONRequestBody = RedeemRequest
+
+// TransferMeJSONRequestBody defines body for TransferMe for application/json ContentType.
+type TransferMeJSONRequestBody = TransferRequest
 
 // RedeemJSONRequestBody defines body for Redeem for application/json ContentType.
 type RedeemJSONRequestBody = RedeemRequest
@@ -163,15 +241,30 @@ type RedeemJSONRequestBody = RedeemRequest
 // TransferJSONRequestBody defines body for Transfer for application/json ContentType.
 type TransferJSONRequestBody = TransferRequest
 
+// RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
+type RegisterUserJSONRequestBody = RegisterRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-
+	// Returns 200 if the service is healthy
 	// (GET /healthz)
 	Healthz(ctx echo.Context) error
-	// Get all accounts on this node and their balances
+	// Get all accounts on this node and their balances of each type
 	// (GET /owner/accounts)
 	OwnerAccounts(ctx echo.Context) error
-	// Get an account and their balances
+	// Get my account and its balances of each token type by pem certificate param header
+	// (GET /owner/accounts/me)
+	OwnerMe(ctx echo.Context, params OwnerMeParams) error
+	// Redeem (burn) tokens
+	// (POST /owner/accounts/redeem/me)
+	RedeemMe(ctx echo.Context, params RedeemMeParams) error
+	// Get all transactions for an account
+	// (GET /owner/accounts/transactions/me)
+	OwnerTransactionsMe(ctx echo.Context, params OwnerTransactionsMeParams) error
+	// Transfer tokens to another account
+	// (POST /owner/accounts/transfer/me)
+	TransferMe(ctx echo.Context, params TransferMeParams) error
+	// Get an account and its balances of each token type
 	// (GET /owner/accounts/{id})
 	OwnerAccount(ctx echo.Context, id Id, params OwnerAccountParams) error
 	// Redeem (burn) tokens
@@ -179,11 +272,14 @@ type ServerInterface interface {
 	Redeem(ctx echo.Context, id Id) error
 	// Get all transactions for an account
 	// (GET /owner/accounts/{id}/transactions)
-	OwnerTransactions(ctx echo.Context, id Id) error
+	OwnerTransactions(ctx echo.Context, id Id, params OwnerTransactionsParams) error
 	// Transfer tokens to another account
 	// (POST /owner/accounts/{id}/transfer)
 	Transfer(ctx echo.Context, id Id) error
-
+	// Register an account
+	// (POST /owner/register)
+	RegisterUser(ctx echo.Context) error
+	// Returns 200 if the service is ready to accept calls
 	// (GET /readyz)
 	Readyz(ctx echo.Context) error
 }
@@ -208,6 +304,203 @@ func (w *ServerInterfaceWrapper) OwnerAccounts(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.OwnerAccounts(ctx)
+	return err
+}
+
+// OwnerMe converts echo context to params.
+func (w *ServerInterfaceWrapper) OwnerMe(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params OwnerMeParams
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "code", ctx.QueryParams(), &params.Code)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter code: %s", err))
+	}
+
+	headers := ctx.Request().Header
+	// ------------- Optional header parameter "cred" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("cred")]; found {
+		var Cred string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for cred, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "cred", runtime.ParamLocationHeader, valueList[0], &Cred)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter cred: %s", err))
+		}
+
+		params.Cred = &Cred
+	}
+	// ------------- Optional header parameter "wallet_id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("wallet_id")]; found {
+		var WalletId string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for wallet_id, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "wallet_id", runtime.ParamLocationHeader, valueList[0], &WalletId)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter wallet_id: %s", err))
+		}
+
+		params.WalletId = &WalletId
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.OwnerMe(ctx, params)
+	return err
+}
+
+// RedeemMe converts echo context to params.
+func (w *ServerInterfaceWrapper) RedeemMe(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RedeemMeParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "cred" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("cred")]; found {
+		var Cred string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for cred, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "cred", runtime.ParamLocationHeader, valueList[0], &Cred)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter cred: %s", err))
+		}
+
+		params.Cred = Cred
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter cred is required, but not found"))
+	}
+	// ------------- Optional header parameter "wallet_id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("wallet_id")]; found {
+		var WalletId string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for wallet_id, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "wallet_id", runtime.ParamLocationHeader, valueList[0], &WalletId)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter wallet_id: %s", err))
+		}
+
+		params.WalletId = &WalletId
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.RedeemMe(ctx, params)
+	return err
+}
+
+// OwnerTransactionsMe converts echo context to params.
+func (w *ServerInterfaceWrapper) OwnerTransactionsMe(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params OwnerTransactionsMeParams
+	// ------------- Optional query parameter "transactionType" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "transactionType", ctx.QueryParams(), &params.TransactionType)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter transactionType: %s", err))
+	}
+
+	// ------------- Optional query parameter "transactionCategory" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "transactionCategory", ctx.QueryParams(), &params.TransactionCategory)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter transactionCategory: %s", err))
+	}
+
+	headers := ctx.Request().Header
+	// ------------- Optional header parameter "cred" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("cred")]; found {
+		var Cred string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for cred, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "cred", runtime.ParamLocationHeader, valueList[0], &Cred)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter cred: %s", err))
+		}
+
+		params.Cred = &Cred
+	}
+	// ------------- Optional header parameter "wallet_id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("wallet_id")]; found {
+		var WalletId string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for wallet_id, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "wallet_id", runtime.ParamLocationHeader, valueList[0], &WalletId)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter wallet_id: %s", err))
+		}
+
+		params.WalletId = &WalletId
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.OwnerTransactionsMe(ctx, params)
+	return err
+}
+
+// TransferMe converts echo context to params.
+func (w *ServerInterfaceWrapper) TransferMe(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params TransferMeParams
+
+	headers := ctx.Request().Header
+	// ------------- Optional header parameter "cred" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("cred")]; found {
+		var Cred string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for cred, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "cred", runtime.ParamLocationHeader, valueList[0], &Cred)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter cred: %s", err))
+		}
+
+		params.Cred = &Cred
+	}
+	// ------------- Optional header parameter "wallet_id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("wallet_id")]; found {
+		var WalletId string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for wallet_id, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "wallet_id", runtime.ParamLocationHeader, valueList[0], &WalletId)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter wallet_id: %s", err))
+		}
+
+		params.WalletId = &WalletId
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.TransferMe(ctx, params)
 	return err
 }
 
@@ -263,8 +556,24 @@ func (w *ServerInterfaceWrapper) OwnerTransactions(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params OwnerTransactionsParams
+	// ------------- Optional query parameter "transactionType" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "transactionType", ctx.QueryParams(), &params.TransactionType)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter transactionType: %s", err))
+	}
+
+	// ------------- Optional query parameter "transactionCategory" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "transactionCategory", ctx.QueryParams(), &params.TransactionCategory)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter transactionCategory: %s", err))
+	}
+
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.OwnerTransactions(ctx, id)
+	err = w.Handler.OwnerTransactions(ctx, id, params)
 	return err
 }
 
@@ -281,6 +590,15 @@ func (w *ServerInterfaceWrapper) Transfer(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.Transfer(ctx, id)
+	return err
+}
+
+// RegisterUser converts echo context to params.
+func (w *ServerInterfaceWrapper) RegisterUser(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.RegisterUser(ctx)
 	return err
 }
 
@@ -323,10 +641,15 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 	router.GET(baseURL+"/healthz", wrapper.Healthz)
 	router.GET(baseURL+"/owner/accounts", wrapper.OwnerAccounts)
+	router.GET(baseURL+"/owner/accounts/me", wrapper.OwnerMe)
+	router.POST(baseURL+"/owner/accounts/redeem/me", wrapper.RedeemMe)
+	router.GET(baseURL+"/owner/accounts/transactions/me", wrapper.OwnerTransactionsMe)
+	router.POST(baseURL+"/owner/accounts/transfer/me", wrapper.TransferMe)
 	router.GET(baseURL+"/owner/accounts/:id", wrapper.OwnerAccount)
 	router.POST(baseURL+"/owner/accounts/:id/redeem", wrapper.Redeem)
 	router.GET(baseURL+"/owner/accounts/:id/transactions", wrapper.OwnerTransactions)
 	router.POST(baseURL+"/owner/accounts/:id/transfer", wrapper.Transfer)
+	router.POST(baseURL+"/owner/register", wrapper.RegisterUser)
 	router.GET(baseURL+"/readyz", wrapper.Readyz)
 
 }
@@ -422,6 +745,126 @@ func (response OwnerAccountsdefaultJSONResponse) VisitOwnerAccountsResponse(w ht
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
+type OwnerMeRequestObject struct {
+	Params OwnerMeParams
+}
+
+type OwnerMeResponseObject interface {
+	VisitOwnerMeResponse(w http.ResponseWriter) error
+}
+
+type OwnerMe200JSONResponse struct{ AccountSuccessJSONResponse }
+
+func (response OwnerMe200JSONResponse) VisitOwnerMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type OwnerMedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response OwnerMedefaultJSONResponse) VisitOwnerMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type RedeemMeRequestObject struct {
+	Params RedeemMeParams
+	Body   *RedeemMeJSONRequestBody
+}
+
+type RedeemMeResponseObject interface {
+	VisitRedeemMeResponse(w http.ResponseWriter) error
+}
+
+type RedeemMe200JSONResponse struct{ RedeemSuccessJSONResponse }
+
+func (response RedeemMe200JSONResponse) VisitRedeemMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RedeemMedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RedeemMedefaultJSONResponse) VisitRedeemMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type OwnerTransactionsMeRequestObject struct {
+	Params OwnerTransactionsMeParams
+}
+
+type OwnerTransactionsMeResponseObject interface {
+	VisitOwnerTransactionsMeResponse(w http.ResponseWriter) error
+}
+
+type OwnerTransactionsMe200JSONResponse struct {
+	TransactionsSuccessJSONResponse
+}
+
+func (response OwnerTransactionsMe200JSONResponse) VisitOwnerTransactionsMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type OwnerTransactionsMedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response OwnerTransactionsMedefaultJSONResponse) VisitOwnerTransactionsMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type TransferMeRequestObject struct {
+	Params TransferMeParams
+	Body   *TransferMeJSONRequestBody
+}
+
+type TransferMeResponseObject interface {
+	VisitTransferMeResponse(w http.ResponseWriter) error
+}
+
+type TransferMe200JSONResponse struct{ TransferSuccessJSONResponse }
+
+func (response TransferMe200JSONResponse) VisitTransferMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type TransferMedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response TransferMedefaultJSONResponse) VisitTransferMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
 type OwnerAccountRequestObject struct {
 	Id     Id `json:"id"`
 	Params OwnerAccountParams
@@ -483,7 +926,8 @@ func (response RedeemdefaultJSONResponse) VisitRedeemResponse(w http.ResponseWri
 }
 
 type OwnerTransactionsRequestObject struct {
-	Id Id `json:"id"`
+	Id     Id `json:"id"`
+	Params OwnerTransactionsParams
 }
 
 type OwnerTransactionsResponseObject interface {
@@ -543,6 +987,35 @@ func (response TransferdefaultJSONResponse) VisitTransferResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
+type RegisterUserRequestObject struct {
+	Body *RegisterUserJSONRequestBody
+}
+
+type RegisterUserResponseObject interface {
+	VisitRegisterUserResponse(w http.ResponseWriter) error
+}
+
+type RegisterUser200JSONResponse struct{ TransferSuccessJSONResponse }
+
+func (response RegisterUser200JSONResponse) VisitRegisterUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RegisterUserdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RegisterUserdefaultJSONResponse) VisitRegisterUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
 type ReadyzRequestObject struct {
 }
 
@@ -570,13 +1043,25 @@ func (response Readyz503JSONResponse) VisitReadyzResponse(w http.ResponseWriter)
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-
+	// Returns 200 if the service is healthy
 	// (GET /healthz)
 	Healthz(ctx context.Context, request HealthzRequestObject) (HealthzResponseObject, error)
-	// Get all accounts on this node and their balances
+	// Get all accounts on this node and their balances of each type
 	// (GET /owner/accounts)
 	OwnerAccounts(ctx context.Context, request OwnerAccountsRequestObject) (OwnerAccountsResponseObject, error)
-	// Get an account and their balances
+	// Get my account and its balances of each token type by pem certificate param header
+	// (GET /owner/accounts/me)
+	OwnerMe(ctx context.Context, request OwnerMeRequestObject) (OwnerMeResponseObject, error)
+	// Redeem (burn) tokens
+	// (POST /owner/accounts/redeem/me)
+	RedeemMe(ctx context.Context, request RedeemMeRequestObject) (RedeemMeResponseObject, error)
+	// Get all transactions for an account
+	// (GET /owner/accounts/transactions/me)
+	OwnerTransactionsMe(ctx context.Context, request OwnerTransactionsMeRequestObject) (OwnerTransactionsMeResponseObject, error)
+	// Transfer tokens to another account
+	// (POST /owner/accounts/transfer/me)
+	TransferMe(ctx context.Context, request TransferMeRequestObject) (TransferMeResponseObject, error)
+	// Get an account and its balances of each token type
 	// (GET /owner/accounts/{id})
 	OwnerAccount(ctx context.Context, request OwnerAccountRequestObject) (OwnerAccountResponseObject, error)
 	// Redeem (burn) tokens
@@ -588,7 +1073,10 @@ type StrictServerInterface interface {
 	// Transfer tokens to another account
 	// (POST /owner/accounts/{id}/transfer)
 	Transfer(ctx context.Context, request TransferRequestObject) (TransferResponseObject, error)
-
+	// Register an account
+	// (POST /owner/register)
+	RegisterUser(ctx context.Context, request RegisterUserRequestObject) (RegisterUserResponseObject, error)
+	// Returns 200 if the service is ready to accept calls
 	// (GET /readyz)
 	Readyz(ctx context.Context, request ReadyzRequestObject) (ReadyzResponseObject, error)
 }
@@ -645,6 +1133,118 @@ func (sh *strictHandler) OwnerAccounts(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(OwnerAccountsResponseObject); ok {
 		return validResponse.VisitOwnerAccountsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("Unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// OwnerMe operation middleware
+func (sh *strictHandler) OwnerMe(ctx echo.Context, params OwnerMeParams) error {
+	var request OwnerMeRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.OwnerMe(ctx.Request().Context(), request.(OwnerMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "OwnerMe")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(OwnerMeResponseObject); ok {
+		return validResponse.VisitOwnerMeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("Unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RedeemMe operation middleware
+func (sh *strictHandler) RedeemMe(ctx echo.Context, params RedeemMeParams) error {
+	var request RedeemMeRequestObject
+
+	request.Params = params
+
+	var body RedeemMeJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RedeemMe(ctx.Request().Context(), request.(RedeemMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RedeemMe")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(RedeemMeResponseObject); ok {
+		return validResponse.VisitRedeemMeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("Unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// OwnerTransactionsMe operation middleware
+func (sh *strictHandler) OwnerTransactionsMe(ctx echo.Context, params OwnerTransactionsMeParams) error {
+	var request OwnerTransactionsMeRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.OwnerTransactionsMe(ctx.Request().Context(), request.(OwnerTransactionsMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "OwnerTransactionsMe")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(OwnerTransactionsMeResponseObject); ok {
+		return validResponse.VisitOwnerTransactionsMeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("Unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// TransferMe operation middleware
+func (sh *strictHandler) TransferMe(ctx echo.Context, params TransferMeParams) error {
+	var request TransferMeRequestObject
+
+	request.Params = params
+
+	var body TransferMeJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.TransferMe(ctx.Request().Context(), request.(TransferMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TransferMe")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(TransferMeResponseObject); ok {
+		return validResponse.VisitTransferMeResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("Unexpected response type: %T", response)
 	}
@@ -709,10 +1309,11 @@ func (sh *strictHandler) Redeem(ctx echo.Context, id Id) error {
 }
 
 // OwnerTransactions operation middleware
-func (sh *strictHandler) OwnerTransactions(ctx echo.Context, id Id) error {
+func (sh *strictHandler) OwnerTransactions(ctx echo.Context, id Id, params OwnerTransactionsParams) error {
 	var request OwnerTransactionsRequestObject
 
 	request.Id = id
+	request.Params = params
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.OwnerTransactions(ctx.Request().Context(), request.(OwnerTransactionsRequestObject))
@@ -764,6 +1365,35 @@ func (sh *strictHandler) Transfer(ctx echo.Context, id Id) error {
 	return nil
 }
 
+// RegisterUser operation middleware
+func (sh *strictHandler) RegisterUser(ctx echo.Context) error {
+	var request RegisterUserRequestObject
+
+	var body RegisterUserJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RegisterUser(ctx.Request().Context(), request.(RegisterUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RegisterUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(RegisterUserResponseObject); ok {
+		return validResponse.VisitRegisterUserResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("Unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // Readyz operation middleware
 func (sh *strictHandler) Readyz(ctx echo.Context) error {
 	var request ReadyzRequestObject
@@ -790,38 +1420,54 @@ func (sh *strictHandler) Readyz(ctx echo.Context) error {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"GeHGjFAmLEHbp1uebW+3/w8AAP//KMjhw4wnAAA=",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

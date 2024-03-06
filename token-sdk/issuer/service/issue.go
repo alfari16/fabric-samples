@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
 	"github.com/hyperledger/fabric-samples/token-sdk/owner/service"
 	"github.com/pkg/errors"
+
 	// "math"
 	"net/http"
 )
@@ -56,15 +57,18 @@ type RedeemRequest struct {
 
 // Issue issues an amount of tokens to a wallet. It connects to the other node, prepares the transaction,
 // gets it approved by the auditor and sends it to the blockchain for endorsement and commit.
-func (s TokenService) Issue(tokenType string, quantity uint64, recipient string, recipientNode string, message string) (txID string, qty uint64, err error) {
+func (s TokenService) Issue(tokenType string, quantity uint64, trxType string, trxCat string, platform string, recipient string, recipientNode string, message string) (txID string, qty uint64, err error) {
 	logger.Infof("going to issue %d %s to [%s] on [%s] with message [%s]", quantity, tokenType, recipient, recipientNode, message)
 	res, err := viewregistry.GetManager(s.FSC).InitiateView(&IssueCashView{
 		IssueCash: &IssueCash{
-			TokenType:     tokenType,
-			Quantity:      quantity,
-			Recipient:     recipient,
-			RecipientNode: recipientNode,
-			Message:       message,
+			TokenType:            tokenType,
+			Quantity:             quantity,
+			Recipient:            recipient,
+			RecipientNode:        recipientNode,
+			TrancsactionCategory: trxCat,
+			TransactionType:      trxType,
+			Plaform:              platform,
+			Message:              message,
 		},
 	})
 	if err != nil {
@@ -165,6 +169,11 @@ type IssueCash struct {
 	TokenType string
 	// Quantity represent the number of units of a certain token type stored in the token
 	Quantity uint64
+
+	TrancsactionCategory string //ARAP
+	TransactionType      string // enum : issue, transfer, withdraw
+	Plaform              string
+
 	// Recipient is an identifier of the recipient identity
 	Recipient string
 	// RecipientNode is the identifier of the node of the recipient
@@ -217,6 +226,18 @@ func (v *IssueCashView) Call(context view.Context) (interface{}, error) {
 	tx, err := ttx.NewTransaction(context, nil, ttx.WithAuditor(auditor))
 	if err != nil {
 		return "", errors.Wrap(err, "failed creating transaction")
+	}
+
+	if v.TrancsactionCategory != "" {
+		tx.SetApplicationMetadata("trx_category", []byte(v.TrancsactionCategory))
+	}
+
+	if v.TransactionType != "" {
+		tx.SetApplicationMetadata("trx_type", []byte(v.TransactionType))
+	}
+
+	if v.Plaform != "" {
+		tx.SetApplicationMetadata("platform", []byte(v.Plaform))
 	}
 
 	// You can set any metadata you want. It is shared with the recipient and

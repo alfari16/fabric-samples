@@ -57,6 +57,9 @@ services:
     build:
       context: ./owner
       dockerfile: ../Dockerfile
+    environment:
+      - FSC_NAME_ID=owner1
+      - COMPANY_ID=eai
     volumes:
       - ./data/owner1:/var/fsc/data/owner1
       - ./owner/conf/owner1:/conf:ro
@@ -77,6 +80,9 @@ services:
     build:
       context: ./owner
       dockerfile: ../Dockerfile
+    environment:
+      - FSC_NAME_ID=owner2
+      - COMPANY_ID=tup
     volumes:
       - ./data/owner2:/var/fsc/data/owner2
       - ./owner/conf/owner2:/conf:ro

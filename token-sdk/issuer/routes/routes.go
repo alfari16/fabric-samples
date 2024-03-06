@@ -24,12 +24,16 @@ func (c Controller) Issue(ctx context.Context, request IssueRequestObject) (Issu
 	value := uint64(request.Body.Amount.Value)
 	recipient := request.Body.Counterparty.Account
 	recipientNode := request.Body.Counterparty.Node
+	trxCat := request.Body.TransactionDetail.TransactionCategory
+	trxType := request.Body.TransactionDetail.TransactionType
+	platform := request.Body.TransactionDetail.Platform
+
 	var message string
 	if request.Body.Message != nil {
 		message = *request.Body.Message
 	}
 
-	txID, qty, err := c.Service.Issue(code, value, recipient, recipientNode, message)
+	txID, qty, err := c.Service.Issue(code, value, trxType, trxCat, platform, recipient, recipientNode, message)
 	if err != nil {
 		return IssuedefaultJSONResponse{
 			Body: Error{
@@ -41,6 +45,72 @@ func (c Controller) Issue(ctx context.Context, request IssueRequestObject) (Issu
 	}
 
 	return Issue200JSONResponse{
+		IssueSuccessJSONResponse: IssueSuccessJSONResponse{
+			Message: fmt.Sprintf("issued %d %s to %s on %s", qty, code, recipient, recipientNode),
+			Payload: txID,
+		},
+	}, nil
+}
+
+func (c Controller) Harvest(ctx context.Context, request HarvestRequestObject) (HarvestResponseObject, error) {
+	code := "IDR"
+	value := uint64(request.Body.Amount.Value)
+	recipient := request.Body.Counterparty.Account
+	recipientNode := request.Body.Counterparty.Node
+	trxCat := request.Body.TransactionDetail.TransactionCategory
+	trxType := request.Body.TransactionDetail.TransactionType
+	platform := request.Body.TransactionDetail.Platform
+
+	var message string
+	if request.Body.Message != nil {
+		message = *request.Body.Message
+	}
+
+	txID, qty, err := c.Service.Issue(code, value, trxType, trxCat, platform, recipient, recipientNode, message)
+	if err != nil {
+		return HarvestdefaultJSONResponse{
+			Body: Error{
+				Message: "can't issue tokens",
+				Payload: err.Error(),
+			},
+			StatusCode: 500,
+		}, nil
+	}
+
+	return Harvest200JSONResponse{
+		IssueSuccessJSONResponse: IssueSuccessJSONResponse{
+			Message: fmt.Sprintf("issued %d %s to %s on %s", qty, code, recipient, recipientNode),
+			Payload: txID,
+		},
+	}, nil
+}
+
+func (c Controller) Kabayan(ctx context.Context, request KabayanRequestObject) (KabayanResponseObject, error) {
+	code := "KBY"
+	value := uint64(request.Body.Amount.Value)
+	recipient := request.Body.Counterparty.Account
+	recipientNode := request.Body.Counterparty.Node
+	trxCat := request.Body.TransactionDetail.TransactionCategory
+	trxType := request.Body.TransactionDetail.TransactionType
+	platform := request.Body.TransactionDetail.Platform
+
+	var message string
+	if request.Body.Message != nil {
+		message = *request.Body.Message
+	}
+
+	txID, qty, err := c.Service.Issue(code, value, trxType, trxCat, platform, recipient, recipientNode, message)
+	if err != nil {
+		return KabayandefaultJSONResponse{
+			Body: Error{
+				Message: "can't issue tokens",
+				Payload: err.Error(),
+			},
+			StatusCode: 500,
+		}, nil
+	}
+
+	return Kabayan200JSONResponse{
 		IssueSuccessJSONResponse: IssueSuccessJSONResponse{
 			Message: fmt.Sprintf("issued %d %s to %s on %s", qty, code, recipient, recipientNode),
 			Payload: txID,

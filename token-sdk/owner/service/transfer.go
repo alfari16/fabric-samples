@@ -17,16 +17,19 @@ import (
 
 // TransferTokens transfers an amount of a certain token. It connects to the other node, prepares the transaction,
 // gets it approved by the auditor and sends it to the blockchain for endorsement and commit.
-func (s TokenService) TransferTokens(tokenType string, quantity uint64, sender string, recipient string, recipientNode string, message string) (txID string, err error) {
+func (s TokenService) TransferTokens(tokenType string, quantity uint64, trxType string, trxCat string, platform string, sender string, recipient string, recipientNode string, message string) (txID string, err error) {
 	logger.Infof("going to transfer %d %s from [%s] to [%s] on [%s] with message [%s]", quantity, tokenType, sender, recipient, recipientNode, message)
 	res, err := viewregistry.GetManager(s.FSC).InitiateView(&TransferView{
 		Transfer: &Transfer{
-			Wallet:        sender,
-			TokenType:     tokenType,
-			Quantity:      quantity,
-			Recipient:     recipient,
-			RecipientNode: recipientNode,
-			Message:       message,
+			Wallet:              sender,
+			TokenType:           tokenType,
+			Quantity:            quantity,
+			TransactionType:     trxType,
+			TransactionCategory: trxCat,
+			Platform:            platform,
+			Recipient:           recipient,
+			RecipientNode:       recipientNode,
+			Message:             message,
 		},
 	})
 	if err != nil {
@@ -42,6 +45,53 @@ func (s TokenService) TransferTokens(tokenType string, quantity uint64, sender s
 	return
 }
 
+func (s TokenService) TransferTokensByCred(fscName string, tokenType string, q uint64, trxType string, trxCat string, platform string, cred string, id string, recipient string, recipientNode string, emssage string) (string, string, error) {
+	if id != "" {
+		txId, err := s.TransferTokens(tokenType, q, trxType, trxCat, platform, id, recipient, recipientNode, emssage)
+		if err != nil {
+			return "", "", err
+		}
+
+		return id, txId, nil
+	}
+
+	signerData, err := s.getSignerDataByCred(fscName, cred)
+	if err != nil {
+		logger.Error(err)
+		return "", "", err
+	}
+
+	var walletId = signerData.EnrollmentID
+	logger.Infof("going to transfer %d %s from [%s] to [%s] on [%s] with message [%s]", q, tokenType, walletId, recipient, recipientNode, emssage)
+
+	res, err := viewregistry.GetManager(s.FSC).InitiateView(&TransferView{
+		Transfer: &Transfer{
+			Wallet:              walletId,
+			TokenType:           tokenType,
+			Quantity:            q,
+			TransactionType:     trxType,
+			TransactionCategory: trxCat,
+			Platform:            platform,
+			Recipient:           recipient,
+			RecipientNode:       recipientNode,
+			Message:             emssage,
+		},
+	})
+	if err != nil {
+		logger.Error(err)
+		return "", "", err
+	}
+
+	txID, ok := res.(string)
+	if !ok {
+		err = errors.New("cannot parse transfer response")
+		logger.Error(err)
+		return "", "", err
+	}
+
+	return walletId, txID, nil
+}
+
 // VIEW
 
 // Transfer contains the input information for a transfer
@@ -52,6 +102,11 @@ type Transfer struct {
 	TokenType string
 	// Quantity to transfer
 	Quantity uint64
+
+	TransactionType     string
+	TransactionCategory string
+	Platform            string
+
 	// RecipientNode is the identity of the recipient's FSC node
 	RecipientNode string
 	// Recipient is the identity of the recipient's wallet
@@ -130,6 +185,19 @@ func (v *TransferView) Call(context view.Context) (interface{}, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "failed adding new tokens")
 	}
+
+	if v.TransactionCategory != "" {
+		tx.SetApplicationMetadata("trx_category", []byte(v.TransactionCategory))
+	}
+
+	if v.TransactionType != "" {
+		tx.SetApplicationMetadata("trx_type", []byte(v.TransactionType))
+	}
+
+	if v.Platform != "" {
+		tx.SetApplicationMetadata("platform", []byte(v.Platform))
+	}
+
 	// You can set any metadata you want. It is shared with the recipient and
 	// auditor but not committed to the ledger.
 	if v.Message != "" {

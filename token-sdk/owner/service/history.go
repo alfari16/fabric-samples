@@ -30,6 +30,11 @@ type TransactionHistoryItem struct {
 	TokenType string
 	// Amount is positive if tokens are received. Negative otherwise
 	Amount int64
+
+	TransactionType     string
+	TransactionCategory string
+	Platform            string
+
 	// Timestamp is the time the transaction was submitted to the db
 	Timestamp time.Time
 	// Status is the status of the transaction
@@ -39,8 +44,38 @@ type TransactionHistoryItem struct {
 	Message string
 }
 
+func (s TokenService) GetHistoyByCred(fscName string, cred string, id string, param string, paramVal string) (walletId string, txs []TransactionHistoryItem, err error) {
+	if id != "" {
+		txs, err = s.GetHistory(id, param, paramVal)
+		if err != nil {
+			return "", txs, errors.Wrap(err, "failed to get transaction history")
+		}
+
+		return
+	}
+
+	signerData, err := s.getSignerDataByCred(fscName, cred)
+	if err != nil {
+		return "", txs, errors.Wrap(err, "failed to get signer data")
+	}
+
+	if signerData == nil {
+		return "", txs, errors.New("signer data not found")
+	}
+
+	walletId = signerData.EnrollmentID
+
+	txs, err = s.GetHistory(id, param, paramVal)
+	if err != nil {
+		return "", txs, errors.Wrap(err, "failed to get transaction history")
+	}
+
+	return
+
+}
+
 // GetHistory returns the full transaction history for an owner.
-func (s TokenService) GetHistory(wallet string) (txs []TransactionHistoryItem, err error) {
+func (s TokenService) GetHistory(wallet string, param string, paramVal string) (txs []TransactionHistoryItem, err error) {
 	// Get query executor
 	owner := ttx.NewOwner(s.FSC, token.GetManagementService(s.FSC))
 	aqe := owner.NewQueryExecutor()
@@ -52,6 +87,7 @@ func (s TokenService) GetHistory(wallet string) (txs []TransactionHistoryItem, e
 	if err != nil {
 		return txs, errors.Wrap(err, "failed querying transactions from db")
 	}
+
 	defer it.Close()
 
 	// we need transaction info to get the transient field (application metadata)
@@ -84,10 +120,55 @@ func (s TokenService) GetHistory(wallet string) (txs []TransactionHistoryItem, e
 		if err != nil {
 			return txs, errors.Wrapf(err, "cannot get transaction info for %s", tx.TxID)
 		}
-		if ti.ApplicationMetadata != nil && string(ti.ApplicationMetadata["message"]) != "" {
-			transaction.Message = string(ti.ApplicationMetadata["message"])
+		if ti.ApplicationMetadata != nil {
+			if string(ti.ApplicationMetadata["message"]) != "" {
+				transaction.Message = string(ti.ApplicationMetadata["message"])
+			}
+
+			if string(ti.ApplicationMetadata["trx_type"]) != "" {
+				transaction.TransactionType = string(ti.ApplicationMetadata["trx_type"])
+			}
+
+			if string(ti.ApplicationMetadata["trx_category"]) != "" {
+				transaction.TransactionCategory = string(ti.ApplicationMetadata["trx_category"])
+			}
+
+			if string(ti.ApplicationMetadata["platform"]) != "" {
+				transaction.Platform = string(ti.ApplicationMetadata["platform"])
+			}
+
 		}
 		txs = append(txs, transaction)
 	}
+
+	txs, err = filterByParam(txs, param, paramVal)
+
+	return
+}
+
+func filterByParam(txs []TransactionHistoryItem, param string, paramVal string) (filteredTxs []TransactionHistoryItem, err error) {
+	switch param {
+	case "":
+		filteredTxs = txs
+		err = nil
+	case "transactionType":
+		for _, tx := range txs {
+			if tx.TransactionType == paramVal {
+				filteredTxs = append(filteredTxs, tx)
+			}
+		}
+		err = nil
+	case "transactionCategory":
+		for _, tx := range txs {
+			if tx.TransactionCategory == paramVal {
+				filteredTxs = append(filteredTxs, tx)
+			}
+		}
+		err = nil
+	default:
+		filteredTxs = txs
+		err = errors.New("invalid filter parameter")
+	}
+
 	return
 }

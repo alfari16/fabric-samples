@@ -67,3 +67,43 @@ func (s TokenService) GetBalance(wallet string, tokenType string) (typeVal Value
 
 	return
 }
+
+func (s TokenService) GetBalanceByCredSigner(fscName string, compId string, cred string, id string, tokenType string) (walletId string, typeVal ValueByTokenType, err error) {
+	typeVal = make(ValueByTokenType)
+
+	if id != "" {
+		walletId = id
+		typeVal, err = s.GetBalance(id, tokenType)
+
+		return
+	}
+
+	signerData, err := s.getSignerDataByCred(fscName, cred)
+	if err != nil {
+		return "", nil, errors.Wrap(err, "Error getting signer data")
+	}
+
+	if signerData == nil {
+		return "", nil, errors.Errorf("signer data not found: %s", cred)
+	}
+
+	walletId, w, err := s.getWallet(compId, signerData.EnrollmentID)
+	if err != nil {
+		return "", nil, err
+	}
+
+	unspentTokens, err := w.ListUnspentTokens(ttx.WithType(tokenType))
+	if len(unspentTokens.Tokens) == 0 {
+		return walletId, typeVal, nil
+	}
+	// Add the value of all unspent tokens in the wallet
+	for _, token := range unspentTokens.Tokens {
+		val, err := strconv.ParseInt(token.Quantity, 0, 64)
+		if err != nil {
+			return walletId, typeVal, errors.Wrap(err, "Error parsing token "+token.Id.String())
+		}
+		typeVal[token.Type] += val
+	}
+
+	return
+}

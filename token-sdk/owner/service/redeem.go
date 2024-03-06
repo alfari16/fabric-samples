@@ -18,16 +18,38 @@ import (
 
 // SERVICE
 
+func (s TokenService) RedeemTokenByCred(fscName string, cred string, tokenType string, q uint64, trxType, trxCat string, platform string, message string) (walId string, txId string, err error) {
+	signerData, err := s.getSignerDataByCred(fscName, cred)
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to get signer data")
+	}
+
+	if signerData == nil {
+		return "", "", errors.New("signer data not found")
+	}
+
+	walId = signerData.EnrollmentID
+	txId, err = s.RedeemTokens(tokenType, q, trxType, trxCat, platform, walId, message)
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to redeem tokens")
+	}
+
+	return
+}
+
 // Redeem burns an amount of a certain token. It prepares the transaction,
 // gets it approved by the auditor and sends it to the blockchain for endorsement and commit.
-func (s TokenService) RedeemTokens(tokenType string, quantity uint64, wallet string, message string) (txID string, err error) {
+func (s TokenService) RedeemTokens(tokenType string, quantity uint64, trxType, trxCat string, platform string, wallet string, message string) (txID string, err error) {
 	logger.Infof("redeeming %d %s from [%s] with message [%s]", quantity, tokenType, wallet, message)
 	res, err := viewregistry.GetManager(s.FSC).InitiateView(&RedeemView{
 		Redeem: &Redeem{
-			Wallet:    wallet,
-			TokenType: tokenType,
-			Quantity:  quantity,
-			Message:   message,
+			Wallet:              wallet,
+			TokenType:           tokenType,
+			Quantity:            quantity,
+			TransactionType:     trxType,
+			TransactionCategory: trxCat,
+			Plaform:             platform,
+			Message:             message,
 		},
 	})
 	if err != nil {
@@ -56,6 +78,11 @@ type Redeem struct {
 	TokenType string
 	// Quantity to redeem
 	Quantity uint64
+
+	TransactionType     string
+	TransactionCategory string
+	Plaform             string
+
 	// Message is an optional user message sent with the transaction.
 	// It's stored in the ApplicationMetadata and is sent in the transient field.
 	Message string
@@ -103,6 +130,18 @@ func (v *RedeemView) Call(context view.Context) (interface{}, error) {
 	)
 	if err != nil {
 		return "", errors.Wrap(err, "failed adding tokens to redeem")
+	}
+
+	if v.TransactionType != "" {
+		tx.SetApplicationMetadata("trx_type", []byte(v.TransactionType))
+	}
+
+	if v.TransactionCategory != "" {
+		tx.SetApplicationMetadata("trx_category", []byte(v.TransactionCategory))
+	}
+
+	if v.Plaform != "" {
+		tx.SetApplicationMetadata("platform", []byte(v.Plaform))
 	}
 
 	// You can set any metadata you want. It is shared with the

@@ -4,6 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"github.com/cloudflare/tableflip"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
@@ -13,13 +20,6 @@ import (
 	tokensdk "github.com/hyperledger-labs/fabric-token-sdk/token/sdk"
 	"github.com/hyperledger/fabric-samples/token-sdk/owner/routes"
 	"github.com/hyperledger/fabric-samples/token-sdk/owner/service"
-	cp "github.com/otiai10/copy"
-	"io"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 var logger = flogging.MustGetLogger("main")
@@ -34,6 +34,10 @@ func (n nh) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 func main() {
 	dir := getEnv("CONF_DIR", "./conf/owner1")
 	port := getEnv("PORT", "9200")
+	fscName := getEnv("FSC_NAME_ID", "")
+	companyId := getEnv("COMPANY_ID", "")
+
+	envData := routes.AppEnv{FSCName: fscName, COmpanyID: companyId}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -98,26 +102,20 @@ func main() {
 	go func() {
 		for range changes {
 			logger.Infof("config changes detected, restarting web server")
-			copiedDir := fmt.Sprintf("%s-%d", dir, time.Now().Unix())
-			err := cp.Copy(dir, copiedDir)
-			if err != nil {
-				logger.Errorf("error copying config file: %w", err)
-			}
 
-			newFsc := startFabricSmartClient(copiedDir)
+			if fsc != nil {
+				fsc.Stop()
+				logger.Infof("================ fsc stop disini ================")
+			}
+			fsc = startFabricSmartClient(dir)
 
 			// Tell the service how to respond to other nodes when they initiate an action
 			registry := viewregistry.GetRegistry(fsc)
 			succeedOrPanic(registry.RegisterResponder(&service.AcceptCashView{}, "github.com/hyperledger/fabric-samples/token-sdk/issuer/service/IssueCashView"))
 			succeedOrPanic(registry.RegisterResponder(&service.AcceptCashView{}, &service.TransferView{}))
 
-			controller := routes.Controller{Service: service.TokenService{FSC: fsc}}
+			controller := routes.Controller{Service: service.TokenService{FSC: fsc}, AppEnv: envData}
 			handler = routes.StartWebServer(controller, logger)
-
-			if fsc != nil {
-				fsc.Stop()
-			}
-			fsc = newFsc
 		}
 	}()
 
