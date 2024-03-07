@@ -21,11 +21,12 @@ var logger = flogging.MustGetLogger("main")
 func main() {
 	dir := getEnv("CONF_DIR", "./conf")
 	port := getEnv("PORT", "9100")
+	staticToken := getEnv("STATIC_TOKEN", "")
 
 	fsc := startFabricSmartClient(dir)
 	hClient := &http.Client{}
 	controller := routes.Controller{Service: service.TokenService{FSC: fsc, HC: hClient}}
-	err := routes.StartWebServer(port, controller, logger)
+	err := routes.StartWebServer(port, controller, logger, staticToken)
 	if err != nil {
 		if err == http.ErrServerClosed {
 			logger.Infof("Webserver closing, exiting...", err.Error())

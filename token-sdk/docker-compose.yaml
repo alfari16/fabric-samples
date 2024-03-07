@@ -15,6 +15,8 @@ services:
     build:
       context: ./auditor
       dockerfile: ../Dockerfile
+    environment:
+      - STATIC_TOKEN=4AA6Bme93QNhPp8w7Kj5mXc3hnaCLhVSBSci721XbVm3YPvvmBDSJYkFLwDXwS3U
     volumes:
       - ./data/auditor:/var/fsc/data/auditor
       - ./auditor/conf:/conf:ro
@@ -37,6 +39,8 @@ services:
     build:
       context: ./issuer
       dockerfile: ../Dockerfile
+    environment:
+      - STATIC_TOKEN=4AA6Bme93QNhPp8w7Kj5mXc3hnaCLhVSBSci721XbVm3YPvvmBDSJYkFLwDXwS3U
     volumes:
       - ./data/issuer:/var/fsc/data/issuer
       - ./issuer/conf:/conf:ro
@@ -60,6 +64,7 @@ services:
     environment:
       - FSC_NAME_ID=owner1
       - COMPANY_ID=eai
+      - STATIC_TOKEN=4AA6Bme93QNhPp8w7Kj5mXc3hnaCLhVSBSci721XbVm3YPvvmBDSJYkFLwDXwS3U
     volumes:
       - ./data/owner1:/var/fsc/data/owner1
       - ./owner/conf/owner1:/conf:ro
@@ -83,6 +88,7 @@ services:
     environment:
       - FSC_NAME_ID=owner2
       - COMPANY_ID=tup
+      - STATIC_TOKEN=4AA6Bme93QNhPp8w7Kj5mXc3hnaCLhVSBSci721XbVm3YPvvmBDSJYkFLwDXwS3U
     volumes:
       - ./data/owner2:/var/fsc/data/owner2
       - ./owner/conf/owner2:/conf:ro

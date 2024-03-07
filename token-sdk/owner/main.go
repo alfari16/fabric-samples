@@ -36,6 +36,7 @@ func main() {
 	port := getEnv("PORT", "9200")
 	fscName := getEnv("FSC_NAME_ID", "")
 	companyId := getEnv("COMPANY_ID", "")
+	staticToken := getEnv("STATIC_TOKEN", "")
 
 	envData := routes.AppEnv{FSCName: fscName, COmpanyID: companyId}
 
@@ -115,7 +116,7 @@ func main() {
 			succeedOrPanic(registry.RegisterResponder(&service.AcceptCashView{}, &service.TransferView{}))
 
 			controller := routes.Controller{Service: service.TokenService{FSC: fsc}, AppEnv: envData}
-			handler = routes.StartWebServer(controller, logger)
+			handler = routes.StartWebServer(controller, logger, staticToken)
 		}
 	}()
 
