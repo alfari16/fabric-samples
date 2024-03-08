@@ -1,15 +1,15 @@
 #build stage
-# FROM golang:1.20.7-bookworm AS builder
-# WORKDIR /go/src/app
-# COPY go.mod .
-# COPY go.sum .
-# RUN go mod download
-# COPY . .
-# RUN go build -o /go/bin/app
+FROM golang:1.20.7-bookworm AS builder
+WORKDIR /go/src/app
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+COPY . 
+RUN go build -o /go/bin/app
 
 #final stage
 FROM golang:1.20.7-bookworm
-COPY ./app /app
+COPY --from=builder /go/bin/app /app
 ENTRYPOINT /app
 LABEL Name=tokens Version=0.1.0
 

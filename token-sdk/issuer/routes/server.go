@@ -40,10 +40,10 @@ func StartWebServer(port string, routesImplementation StrictServerInterface, log
 		os.Exit(1)
 	}
 	swagger.Servers = nil
-	private := e.Group(baseURL)
-	private.Use(AuthTokenMiddleWare(staticToken))
-	private.Use(oapimiddleware.OapiRequestValidator(swagger))
 
+	e.Group(baseURL).Use(oapimiddleware.OapiRequestValidator(swagger))
+
+	e.Use(AuthTokenMiddleWare(staticToken))
 	e.Use(middleware.CORS())
 	e.Use(middleware.RequestID())
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
@@ -68,22 +68,32 @@ func StartWebServer(port string, routesImplementation StrictServerInterface, log
 }
 
 func AuthTokenMiddleWare(StaticToken string) echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			xToken := c.Request().Header.Get("Authorization")
-			// get bearer token either from header or cookie
+    return func(next echo.HandlerFunc) echo.HandlerFunc {
+        return func(c echo.Context) error {
+            // Daftar path yang dikecualikan dari autentikasi
+            exemptPaths := map[string]bool{
+                "/api/v1/healthz": true,
+                "/api/v1/readyz":  true,
+            }
 
-			resp := map[string]interface{}{
-				"success": false,
-				"message": "Unauthorized Request",
-				"data":    nil,
-			}
+            // Periksa apakah path request saat ini dikecualikan dari autentikasi
+            if exemptPaths[c.Request().URL.Path] {
+                return next(c) // Langsung teruskan ke handler selanjutnya tanpa autentikasi
+            }
 
-			if xToken != StaticToken {
-				return c.JSON(http.StatusUnauthorized, resp)
-			}
+            xToken := c.Request().Header.Get("Authorization")
+            // get bearer token either from header or cookie
+            resp := map[string]interface{}{
+                "success": false,
+                "message": "Unauthorized Request",
+                "data":    nil,
+            }
 
-			return next(c)
-		}
-	}
+            if xToken != StaticToken {
+                return c.JSON(http.StatusUnauthorized, resp)
+            }
+
+            return next(c)
+        }
+    }
 }
