@@ -25,19 +25,19 @@ fabric-ca-client register -u http://localhost:27054 --id.name issuer --id.secret
 fabric-ca-client enroll -u http://issuer:password@localhost:27054 -M "$(pwd)/keys/issuer/iss/msp"
 
 # Owner wallet users (pseudonymous) on the owner1 node
-# fabric-ca-client register -u http://localhost:27054 --id.name alice --id.secret password --id.type client --enrollment.type idemix --idemix.curve gurvy.Bn254
-# fabric-ca-client enroll -u http://alice:password@localhost:27054  -M "$(pwd)/keys/owner1/wallet/alice/msp" --enrollment.type idemix --idemix.curve gurvy.Bn254
+fabric-ca-client register -u http://localhost:27054 --id.name alice --id.secret password --id.type client --enrollment.type idemix --idemix.curve gurvy.Bn254
+fabric-ca-client enroll -u http://alice:password@localhost:27054  -M "$(pwd)/keys/owner1/wallet/alice/msp" --enrollment.type idemix --idemix.curve gurvy.Bn254
 
-# fabric-ca-client register -u http://localhost:27054 --id.name bob --id.secret password --id.type client --enrollment.type idemix --idemix.curve gurvy.Bn254
-# fabric-ca-client enroll -u http://bob:password@localhost:27054 -M "$(pwd)/keys/owner1/wallet/bob/msp" --enrollment.type idemix --idemix.curve gurvy.Bn254
+fabric-ca-client register -u http://localhost:27054 --id.name bob --id.secret password --id.type client --enrollment.type idemix --idemix.curve gurvy.Bn254
+fabric-ca-client enroll -u http://bob:password@localhost:27054 -M "$(pwd)/keys/owner1/wallet/bob/msp" --enrollment.type idemix --idemix.curve gurvy.Bn254
 
 # # Owner wallet users (pseudonymous) on the owner2 node
-# fabric-ca-client register -u http://localhost:27054 --id.name carlos --id.secret password --id.type client --enrollment.type idemix --idemix.curve gurvy.Bn254
-# fabric-ca-client enroll -u http://carlos:password@localhost:27054  -M "$(pwd)/keys/owner2/wallet/carlos/msp" --enrollment.type idemix --idemix.curve gurvy.Bn254
+fabric-ca-client register -u http://localhost:27054 --id.name carlos --id.secret password --id.type client --enrollment.type idemix --idemix.curve gurvy.Bn254
+fabric-ca-client enroll -u http://carlos:password@localhost:27054  -M "$(pwd)/keys/owner2/wallet/carlos/msp" --enrollment.type idemix --idemix.curve gurvy.Bn254
 
-# fabric-ca-client register -u http://localhost:27054 --id.name dan --id.secret password --id.type client --enrollment.type idemix --idemix.curve gurvy.Bn254
-# fabric-ca-client enroll -u http://dan:password@localhost:27054 -M "$(pwd)/keys/owner2/wallet/dan/msp" --enrollment.type idemix --idemix.curve gurvy.Bn254
+fabric-ca-client register -u http://localhost:27054 --id.name dan --id.secret password --id.type client --enrollment.type idemix --idemix.curve gurvy.Bn254
+fabric-ca-client enroll -u http://dan:password@localhost:27054 -M "$(pwd)/keys/owner2/wallet/dan/msp" --enrollment.type idemix --idemix.curve gurvy.Bn254
 
 
-# fabric-ca-client register -u http://vmi841543.contaboserver.net:27054 --id.name budi --id.secret password --id.type client --enrollment.type idemix --idemix.curve gurvy.Bn254
-# fabric-ca-client enroll -u http://budi:password@vmi841543.contaboserver.net:27054 -M "$(pwd)/keys/owner3/wallet/budi/msp" --enrollment.type idemix --idemix.curve gurvy.Bn254
+fabric-ca-client register -u http://vmi841543.contaboserver.net:27054 --id.name budi --id.secret password --id.type client --enrollment.type idemix --idemix.curve gurvy.Bn254
+fabric-ca-client enroll -u http://budi:password@vmi841543.contaboserver.net:27054 -M "$(pwd)/keys/owner3/wallet/budi/msp" --enrollment.type idemix --idemix.curve gurvy.Bn254
