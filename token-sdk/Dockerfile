@@ -9,8 +9,7 @@
 
 #final stage
 FROM golang:1.20.7-bookworm
-USER root
-COPY ./app /app
+COPY ./app2 /app
 # RUN sudo mount -o remount exec /tmp
 ENTRYPOINT /app
 LABEL Name=tokens Version=0.1.0

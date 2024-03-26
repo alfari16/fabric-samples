@@ -55,7 +55,7 @@ services:
       auditor:
         condition: service_healthy
 
-  eai:
+  owner1:
     hostname: owner1.example.com
     restart: always
     build:
