@@ -39,14 +39,14 @@ fsc:
           path: /var/fsc/keys/issuer/fsc/msp/signcerts/cert.pem
         addresses:
           P2P: issuer.example.com:9101
-      - name: owner2
-        identity:
-          id: owner2
-          path: /var/fsc/keys/owner2/fsc/msp/signcerts/cert.pem
-        addresses:
-          P2P: owner2.example.com:9201
-        aliases:
-          - owner2
+      # - name: owner2
+      #   identity:
+      #     id: owner2
+      #     path: /var/fsc/keys/owner2/fsc/msp/signcerts/cert.pem
+      #   addresses:
+      #     P2P: owner2.example.com:9201
+      #   aliases:
+      #     - owner2
 
 # ------------------- Fabric Configuration -------------------------
 fabric: 

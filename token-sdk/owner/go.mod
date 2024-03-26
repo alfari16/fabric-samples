@@ -5,6 +5,7 @@ go 1.20
 replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go/codec v1.2.9
 
 require (
+	github.com/cloudflare/tableflip v1.2.3
 	github.com/deepmap/oapi-codegen v1.15.0
 	github.com/getkin/kin-openapi v0.120.0
 	github.com/hyperledger-labs/fabric-smart-client v0.3.0
@@ -36,7 +37,6 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
-	github.com/cloudflare/tableflip v1.2.3 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark-crypto v0.9.1 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect

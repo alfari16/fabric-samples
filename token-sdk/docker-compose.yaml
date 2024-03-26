@@ -55,7 +55,7 @@ services:
       auditor:
         condition: service_healthy
 
-  owner1:
+  eai:
     hostname: owner1.example.com
     restart: always
     build:
@@ -68,7 +68,9 @@ services:
     volumes:
       - ./data/owner1:/var/fsc/data/owner1
       - ./owner/conf/owner1:/conf:ro
-      - ./keys:/var/fsc/keys:ro
+      - ./keys:/var/fsc/keys
+      - /root/blockchain/fabric-samples/bin:/tmp
+      - /root/.fabric-ca-client:/root/.fabric-ca-client
     ports:
       - 9200:9000
     expose:
@@ -92,7 +94,9 @@ services:
     volumes:
       - ./data/owner2:/var/fsc/data/owner2
       - ./owner/conf/owner2:/conf:ro
-      - ./keys:/var/fsc/keys:ro
+      - ./keys:/var/fsc/keys
+      - /root/blockchain/fabric-samples/bin:/tmp
+      - /root/.fabric-ca-client:/root/.fabric-ca-client
     ports:
       - 9300:9000
     expose:

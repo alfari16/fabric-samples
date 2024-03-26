@@ -2,21 +2,86 @@ package service
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger-labs/fabric-token-sdk/token"
+	"github.com/hyperledger-labs/fabric-token-sdk/token/services/ttx"
 	"github.com/pkg/errors"
 )
 
 func (s TokenService) RegisterOwnerWallet(fscName string, id string, username string) (string, error) {
-	logger.Infof("register user wallet %s to %s", username, fscName)
+	path := fmt.Sprintf("/var/fsc/keys/%s/wallet/%s/msp", fscName, id)
 
-	path := fmt.Sprintf("/var/fsc/keys/%s/wallet/%s/msp", fscName, username)
+	// checking before process
+	// check wallet is exist in path or not, and check wallet is exist on owner or not
+	_, err := os.Stat(path)
+
+	// if w != nil && !os.IsNotExist(err) {
+	// 	return fmt.Sprintf("wallet already exist: %s", id), nil
+	// }
+
+	if os.IsNotExist(err) {
+		fmt.Printf("register -u http://vmi841543.contaboserver.net:27054 --id.attrs full_name=\"%s\" --id.name %s --id.secret password --id.type client --enrollment.type idemix --idemix.curve gurvy.Bn254 |||\n", username, id)
+		fmt.Printf("enroll -u http://%s:password@vmi841543.contaboserver.net:27054 -M %s --enrollment.type idemix --idemix.curve gurvy.Bn254 ==== \n", id, path)
+
+		args := []string{
+			"register",
+			"-u",
+			"http://vmi841543.contaboserver.net:27054",
+			"--id.attrs",
+			fmt.Sprintf("full_name=%s", username),
+			"--id.name",
+			id,
+			"--id.secret",
+			"password",
+			"--id.type",
+			"client",
+			"--enrollment.type",
+			"idemix",
+			"--idemix.curve",
+			"gurvy.Bn254",
+		}
+		o, err := exec.Command("/tmp/fabric-ca-client", args...).CombinedOutput()
+		if err != nil {
+			logger.Errorf("error when register with fabric-ca-client: %s", err.Error())
+			return "", err
+		}
+		logger.Infof("successfully register using fabric-ca-client: %s", o)
+
+		args = []string{
+			"enroll",
+			"-u",
+			fmt.Sprintf("http://%s:password@vmi841543.contaboserver.net:27054", id),
+			"-M",
+			path,
+			"--enrollment.type",
+			"idemix",
+			"--idemix.curve",
+			"gurvy.Bn254",
+		}
+		o, err = exec.Command("/tmp/fabric-ca-client", args...).CombinedOutput()
+		if err != nil {
+			logger.Errorf("error when enroll with fabric-ca-client: %s", err.Error())
+			return "", err
+		}
+		logger.Infof("successfully enroll using fabric-ca-client: %s-%s", path, o)
+	}
+
+	logger.Infof("register user wallet %s to %s, path: %s", username, fscName, path)
+
+	// ketika kita register ke chaincode
+	w := ttx.GetWallet(s.FSC, id)
+
+	if w != nil {
+		return fmt.Sprintf("wallet already exist: %s", id), nil
+	}
 
 	// register wallet
-	_, err := viewregistry.GetManager(s.FSC).InitiateView(&RegisterOwnerWalletView{
+	_, err = viewregistry.GetManager(s.FSC).InitiateView(&RegisterOwnerWalletView{
 		RegisterOwner: &RegisterOwner{
 			ID:   id,
 			Path: path,
