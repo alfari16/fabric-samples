@@ -65,6 +65,7 @@ services:
       - FSC_NAME_ID=owner1
       - COMPANY_ID=eai
       - STATIC_TOKEN=4AA6Bme93QNhPp8w7Kj5mXc3hnaCLhVSBSci721XbVm3YPvvmBDSJYkFLwDXwS3U
+      - FABRIC_CA_HOST=vmi841543.contaboserver.net:27054
     volumes:
       - ./data/owner1:/var/fsc/data/owner1
       - ./owner/conf/owner1:/conf:ro
@@ -91,6 +92,7 @@ services:
       - FSC_NAME_ID=owner2
       - COMPANY_ID=tup
       - STATIC_TOKEN=4AA6Bme93QNhPp8w7Kj5mXc3hnaCLhVSBSci721XbVm3YPvvmBDSJYkFLwDXwS3U
+      - FABRIC_CA_HOST=vmi841543.contaboserver.net:27054
     volumes:
       - ./data/owner2:/var/fsc/data/owner2
       - ./owner/conf/owner2:/conf:ro

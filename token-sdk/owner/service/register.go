@@ -23,15 +23,13 @@ func (s TokenService) RegisterOwnerWallet(fscName string, id string, username st
 	// if w != nil && !os.IsNotExist(err) {
 	// 	return fmt.Sprintf("wallet already exist: %s", id), nil
 	// }
+	host := os.Getenv("FABRIC_CA_HOST")
 
 	if os.IsNotExist(err) {
-		fmt.Printf("register -u http://vmi841543.contaboserver.net:27054 --id.attrs full_name=\"%s\" --id.name %s --id.secret password --id.type client --enrollment.type idemix --idemix.curve gurvy.Bn254 |||\n", username, id)
-		fmt.Printf("enroll -u http://%s:password@vmi841543.contaboserver.net:27054 -M %s --enrollment.type idemix --idemix.curve gurvy.Bn254 ==== \n", id, path)
-
 		args := []string{
 			"register",
 			"-u",
-			"http://vmi841543.contaboserver.net:27054",
+			fmt.Sprintf("http://%s", host),
 			"--id.attrs",
 			fmt.Sprintf("full_name=%s", username),
 			"--id.name",
@@ -55,7 +53,7 @@ func (s TokenService) RegisterOwnerWallet(fscName string, id string, username st
 		args = []string{
 			"enroll",
 			"-u",
-			fmt.Sprintf("http://%s:password@vmi841543.contaboserver.net:27054", id),
+			fmt.Sprintf("http://%s:password@%s", id, host),
 			"-M",
 			path,
 			"--enrollment.type",
